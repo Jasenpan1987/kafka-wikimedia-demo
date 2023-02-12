@@ -31,6 +31,7 @@
   "dependencies": {
     "dotenv": "16.0.3",
     "kafkajs": "2.2.3",
+    "kafkajs-snappy": "^1.1.0",
     "wikimedia-streams": "^0.4.0"
   }
 }

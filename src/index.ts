@@ -1,8 +1,17 @@
+import { Kafka, logLevel, CompressionTypes, CompressionCodecs } from "kafkajs";
 import WikimediaStream from "wikimedia-streams";
-import { Kafka, logLevel } from "kafkajs";
+const SnappyCodec = require("kafkajs-snappy");
 
 const WIKIMEDIA_STREAM_NAME = "recentchange";
 const KAFKA_TOPIC = "wikimedia.recentchange.nodejs";
+
+CompressionCodecs[CompressionTypes.Snappy] = SnappyCodec;
+
+const getMessageKey = (index: number) => {
+  if (index % 10 === 0) return "full";
+  if (index % 2 === 0) return "even";
+  return "odd";
+};
 
 async function main() {
   const kafka = new Kafka({
@@ -12,7 +21,13 @@ async function main() {
   });
 
   const producer = kafka.producer({
-    allowAutoTopicCreation: true
+    allowAutoTopicCreation: true,
+    idempotent: true,
+    maxInFlightRequests: 5,
+    retry: {
+      maxRetryTime: 120000,
+      retries: Number.MAX_SAFE_INTEGER
+    }
   });
 
   await producer.connect();
@@ -21,8 +36,10 @@ async function main() {
 
   stream.on("mediawiki.recentchange", async (data, evemt) => {
     await producer.send({
+      acks: -1,
       topic: KAFKA_TOPIC,
-      messages: [{ value: JSON.stringify(data) }]
+      messages: [{ value: JSON.stringify(data) }],
+      compression: CompressionTypes.Snappy
     });
   });
 }
